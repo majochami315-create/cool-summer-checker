@@ -3,33 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cool Summer Tuner</title>
+    <title>Cool Summer Harmony</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #eef2f7; margin: 0; padding: 20px; color: #2c3e50; }
-        h1 { font-size: 1.4rem; color: #2c3e50; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 5px; }
+        body { font-family: sans-serif; text-align: center; background: #f4f6f9; margin: 0; padding: 20px; color: #2c3e50; }
+        h1 { font-size: 1.4rem; color: #34495e; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 5px; }
         .subtitle { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 25px; }
-        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto 20px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(165, 175, 190, 0.25); }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto 20px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(165, 175, 190, 0.2); }
         video { width: 100%; display: block; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
-        button { background: #617385; color: white; border: none; padding: 14px 35px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(97, 115, 133, 0.25); font-weight: bold; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
+        button { background: #6b8ebe; color: white; border: none; padding: 14px 35px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(107, 142, 190, 0.3); font-weight: bold; }
         button:active { transform: scale(0.96); }
-        #result-box { margin-top: 30px; padding: 22px; border-radius: 16px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-        #judgment { font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; letter-spacing: 0.05em; }
+        #result-box { margin-top: 30px; padding: 22px; border-radius: 16px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+        #judgment { font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
         #match-comment { font-size: 0.95rem; color: #5a6575; margin-bottom: 15px; line-height: 1.5; }
         #color-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto; border: 2px solid #e2e8f0; }
     </style>
 </head>
 <body>
 
-    <h1>クールサマー・チューナー</h1>
-    <div class="subtitle">CIELAB色空間による精密な調律</div>
+    <h1>クールサマー・ハーモニー</h1>
+    <div class="subtitle">黒や影を避け、純粋な色彩を調律する</div>
 
     <div id="video-container">
         <video id="video" autoplay playsinline></video>
         <div id="crosshair"></div>
     </div>
 
-    <button id="check-btn">光を測定する</button>
+    <button id="check-btn">色をあわせる</button>
 
     <div id="result-box">
         <div id="judgment">-</div>
@@ -49,14 +49,12 @@
         
         let colorDatabase = [];
 
-        // RGBからCIELAB（人間の視覚空間）へ変換する関数
         function rgbToLab(r, g, b) {
             r /= 255; g /= 255; b /= 255;
             r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
             g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
             b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
             
-            // D65光源の基準値でXYZに変換
             let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) * 100;
             let y = (r * 0.2126 + g * 0.7152 + b * 0.0722) * 100;
             let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) * 100;
@@ -67,17 +65,12 @@
             y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
             z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
             
-            return [
-                (116 * y) - 16,        // L (明度)
-                500 * (x - y),         // a (赤-緑)
-                200 * (y - z)          // b (黄-青)
-            ];
+            return [(116 * y) - 16, 500 * (x - y), 200 * (y - z)];
         }
 
         fetch('colors.json')
             .then(response => response.json())
             .then(data => {
-                // データベースの色をあらかじめLabに変換しておく
                 colorDatabase = data.map(c => {
                     const [l, a, b] = rgbToLab(c.R, c.G, c.B);
                     return { name: c.name, l, a, b, r: c.R, g: c.G, b: c.B };
@@ -101,14 +94,23 @@
             const midY = Math.floor(canvas.height / 2);
             const pixel = ctx.getImageData(midX, midY, 1, 1).data;
             
-            // カメラが拾った色をLabに変換
             const [targetL, targetA, targetB] = rgbToLab(pixel[0], pixel[1], pixel[2]);
+
+            colorPreview.style.backgroundColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+
+            // 【新・黒＆影のシャットアウト機能】
+            // 明度(targetL)が23以下の極端に暗い領域は、判定の対象外（保留）にする
+            if (targetL <= 23) {
+                judgment.innerText = "⏳ 測定保留 (Too Dark)";
+                judgment.style.color = "#7f8c8d"; // ニュートラルなグレー
+                matchComment.innerText = "黒、または影を検出しました。パーソナルカラーの判定を避けるため、もう少し色みのある場所を映してください。";
+                return;
+            }
 
             let minDistance = Infinity;
             let closestColorName = "";
 
             colorDatabase.forEach(color => {
-                // CIELAB空間での距離計算
                 const distance = Math.sqrt(
                     Math.pow(targetL - color.l, 2) +
                     Math.pow(targetA - color.a, 2) +
@@ -120,20 +122,17 @@
                 }
             });
 
-            // 【新しい調整：しきい値を15に設定】
-            // CIELABでの距離「15」は、肉眼で「明らかに同系統、あるいはごく僅かな違い」と感じる厳しめの境界線です。
-            const THRESHOLD = 15; 
-
-            colorPreview.style.backgroundColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+            // しきい値は「少し近ければOK」な大らかさ（25）をキープ
+            const THRESHOLD = 25; 
 
             if (minDistance <= THRESHOLD) {
                 judgment.innerText = "✨ 合格 (Match)";
                 judgment.style.color = "#3a7d44"; 
-                matchComment.innerText = `パレットの「${closestColorName}」と美しく調和しています。肌を澄ませる光です。`;
+                matchComment.innerText = `「${closestColorName}」のニュアンスを感じる、調和しやすい光です。`;
             } else {
                 judgment.innerText = "⏳ 対象外 (Miss)";
                 judgment.style.color = "#a63a3a"; 
-                matchComment.innerText = "クールサマーの純色から外れています。黄みか、強すぎるくすみがあるかもしれません。";
+                matchComment.innerText = "少しサマーの領域から距離があるようです。光のあたり方を変えてみるか、別の色を試してみてください。";
             }
         });
     </script>
