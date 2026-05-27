@@ -3,36 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cool Summer Matcher</title>
+    <title>Cool Summer Tuner</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f4f8; margin: 0; padding: 20px; color: #2c3e50; }
-        h1 { font-size: 1.4rem; color: #34495e; font-weight: 600; letter-spacing: 0.05em; }
-        #video-container { position: relative; width: 100%; max-width: 400px; margin: 20px auto; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(149, 157, 165, 0.2); }
+        body { font-family: sans-serif; text-align: center; background: #eef2f7; margin: 0; padding: 20px; color: #2c3e50; }
+        h1 { font-size: 1.4rem; color: #2c3e50; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 5px; }
+        .subtitle { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 25px; }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto 20px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(165, 175, 190, 0.25); }
         video { width: 100%; display: block; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
-        button { background: #5c88b9; color: white; border: none; padding: 14px 32px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; margin-top: 15px; box-shadow: 0 4px 12px rgba(92, 136, 185, 0.3); }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
+        button { background: #617385; color: white; border: none; padding: 14px 35px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(97, 115, 133, 0.25); font-weight: bold; }
         button:active { transform: scale(0.96); }
-        #result-box { margin-top: 30px; padding: 20px; border-radius: 12px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.04); transition: 0.3s; }
-        #judgment { font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
-        #match-comment { font-size: 1rem; color: #7f8c8d; margin-bottom: 15px; }
-        #color-preview { width: 45px; height: 45px; border-radius: 50%; margin: 0 auto; border: 2px solid #e2e8f0; }
+        #result-box { margin-top: 30px; padding: 22px; border-radius: 16px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        #judgment { font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; letter-spacing: 0.05em; }
+        #match-comment { font-size: 0.95rem; color: #5a6575; margin-bottom: 15px; line-height: 1.5; }
+        #color-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto; border: 2px solid #e2e8f0; }
     </style>
 </head>
 <body>
 
-    <h1>クールサマー・マッチャー</h1>
-    <p style="font-size: 0.9rem; color: #7f8c8d;">中央の○に対象をあわせて、あなたの「調和する光」を見つけます</p>
+    <h1>クールサマー・チューナー</h1>
+    <div class="subtitle">CIELAB色空間による精密な調律</div>
 
     <div id="video-container">
         <video id="video" autoplay playsinline></video>
         <div id="crosshair"></div>
     </div>
 
-    <button id="check-btn">色を調律する</button>
+    <button id="check-btn">光を測定する</button>
 
     <div id="result-box">
         <div id="judgment">-</div>
-        <div id="match-comment">ここに判定結果が出ます</div>
+        <div id="match-comment">ボタンを押して光を測定してください</div>
         <div id="color-preview"></div>
     </div>
 
@@ -48,10 +49,41 @@
         
         let colorDatabase = [];
 
+        // RGBからCIELAB（人間の視覚空間）へ変換する関数
+        function rgbToLab(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+            g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+            b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+            
+            // D65光源の基準値でXYZに変換
+            let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) * 100;
+            let y = (r * 0.2126 + g * 0.7152 + b * 0.0722) * 100;
+            let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) * 100;
+            
+            x /= 95.047; y /= 100.000; z /= 108.883;
+            
+            x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
+            y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
+            z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
+            
+            return [
+                (116 * y) - 16,        // L (明度)
+                500 * (x - y),         // a (赤-緑)
+                200 * (y - z)          // b (黄-青)
+            ];
+        }
+
         fetch('colors.json')
             .then(response => response.json())
-            .then(data => { colorDatabase = data; })
-            .catch(err => console.error("データの読込失敗", err));
+            .then(data => {
+                // データベースの色をあらかじめLabに変換しておく
+                colorDatabase = data.map(c => {
+                    const [l, a, b] = rgbToLab(c.R, c.G, c.B);
+                    return { name: c.name, l, a, b, r: c.R, g: c.G, b: c.B };
+                });
+            })
+            .catch(err => console.error("データ読込失敗", err));
 
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; })
@@ -69,19 +101,18 @@
             const midY = Math.floor(canvas.height / 2);
             const pixel = ctx.getImageData(midX, midY, 1, 1).data;
             
-            const r = pixel[0];
-            const g = pixel[1];
-            const b = pixel[2];
+            // カメラが拾った色をLabに変換
+            const [targetL, targetA, targetB] = rgbToLab(pixel[0], pixel[1], pixel[2]);
 
-            // 48色すべてと見比べて、「一番惜しかった（近い）距離」を測る
             let minDistance = Infinity;
             let closestColorName = "";
 
             colorDatabase.forEach(color => {
+                // CIELAB空間での距離計算
                 const distance = Math.sqrt(
-                    Math.pow(r - color.R, 2) +
-                    Math.pow(g - color.G, 2) +
-                    Math.pow(b - color.B, 2)
+                    Math.pow(targetL - color.l, 2) +
+                    Math.pow(targetA - color.a, 2) +
+                    Math.pow(targetB - color.b, 2)
                 );
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -89,24 +120,22 @@
                 }
             });
 
-            // 【ここが中庸のフィルター】
-            // 距離のしきい値（マージン）を「65」に設定。これより数字が小さければ「似ている」とみなす
-            const THRESHOLD = 65; 
+            // 【新しい調整：しきい値を15に設定】
+            // CIELABでの距離「15」は、肉眼で「明らかに同系統、あるいはごく僅かな違い」と感じる厳しめの境界線です。
+            const THRESHOLD = 15; 
 
-            // カメラが拾った実際の色を丸いプレビューに映す
-            colorPreview.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+            colorPreview.style.backgroundColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
 
             if (minDistance <= THRESHOLD) {
                 judgment.innerText = "✨ 合格 (Match)";
-                judgment.style.color = "#2e7d32"; // 穏やかな緑色
-                matchComment.innerText = `パレットの「${closestColorName}」に近い、美しい味方の光です。`;
+                judgment.style.color = "#3a7d44"; 
+                matchComment.innerText = `パレットの「${closestColorName}」と美しく調和しています。肌を澄ませる光です。`;
             } else {
                 judgment.innerText = "⏳ 対象外 (Miss)";
-                judgment.style.color = "#c62828"; // 落ち着いた赤色
-                matchComment.innerText = "少しイエローベースに寄っているか、くすみが強いかもしれません。";
+                judgment.style.color = "#a63a3a"; 
+                matchComment.innerText = "クールサマーの純色から外れています。黄みか、強すぎるくすみがあるかもしれません。";
             }
         });
     </script>
 </body>
 </html>
-
