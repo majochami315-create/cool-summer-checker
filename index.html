@@ -3,38 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cool Summer Harmony</title>
+    <title>Cool Summer Tuner</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #f4f6f9; margin: 0; padding: 20px; color: #2c3e50; }
         h1 { font-size: 1.4rem; color: #34495e; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 5px; }
-        .subtitle { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 25px; }
-        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto 20px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(165, 175, 190, 0.2); }
+        .subtitle { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 20px; }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto 15px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(165, 175, 190, 0.2); }
         video { width: 100%; display: block; }
         #crosshair { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
-        button { background: #6b8ebe; color: white; border: none; padding: 14px 35px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(107, 142, 190, 0.3); font-weight: bold; }
+        
+        .btn-group { display: flex; justify-content: center; gap: 10px; max-width: 400px; margin: 0 auto 15px; }
+        #calibrate-btn { background: #7f8c8d; color: white; border: none; padding: 12px 20px; font-size: 0.9rem; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        #check-btn { background: #6b8ebe; color: white; border: none; padding: 12px 30px; font-size: 1rem; border-radius: 25px; cursor: pointer; flex-grow: 1; font-weight: bold; box-shadow: 0 4px 15px rgba(107, 142, 190, 0.3); }
         button:active { transform: scale(0.96); }
-        #result-box { margin-top: 30px; padding: 22px; border-radius: 16px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+        
+        #result-box { padding: 22px; border-radius: 16px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
         #judgment { font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
         #match-comment { font-size: 0.95rem; color: #5a6575; margin-bottom: 15px; line-height: 1.5; }
         #color-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto; border: 2px solid #e2e8f0; }
+        #calib-status { font-size: 0.8rem; color: #95a5a6; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>クールサマー・ハーモニー</h1>
-    <div class="subtitle">黒や影を避け、純粋な色彩を調律する</div>
+    <h1>クールサマー・チューナー</h1>
+    <div class="subtitle">環境の光を調律し、純粋な色彩を測る</div>
 
     <div id="video-container">
         <video id="video" autoplay playsinline></video>
         <div id="crosshair"></div>
     </div>
 
-    <button id="check-btn">色をあわせる</button>
+    <div class="btn-group">
+        <button id="calibrate-btn">白を記憶</button>
+        <button id="check-btn">色をあわせる</button>
+    </div>
 
     <div id="result-box">
         <div id="judgment">-</div>
-        <div id="match-comment">ボタンを押して光を測定してください</div>
+        <div id="match-comment">白い紙などを○に合わせ、「白を記憶」を押してから測定してください。</div>
         <div id="color-preview"></div>
+        <div id="calib-status">現在の調律: 標準（未補正）</div>
     </div>
 
     <canvas id="canvas" style="display:none;"></canvas>
@@ -42,12 +51,19 @@
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const calibrateBtn = document.getElementById('calibrate-btn');
         const checkBtn = document.getElementById('check-btn');
         const judgment = document.getElementById('judgment');
         const matchComment = document.getElementById('match-comment');
         const colorPreview = document.getElementById('color-preview');
+        const calibStatus = document.getElementById('calib-status');
         
         let colorDatabase = [];
+        
+        // 環境光の補正係数（初期値は1倍＝補正なし）
+        let rScale = 1.0;
+        let gScale = 1.0;
+        let bScale = 1.0;
 
         function rgbToLab(r, g, b) {
             r /= 255; g /= 255; b /= 255;
@@ -82,9 +98,8 @@
             .then(stream => { video.srcObject = stream; })
             .catch(err => { alert("カメラを起動できません"); });
 
-        checkBtn.addEventListener('click', () => {
-            if (colorDatabase.length === 0) return;
-
+        // 【新機能：光の調律（キャリブレーション）】
+        calibrateBtn.addEventListener('click', () => {
             const ctx = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -94,47 +109,23 @@
             const midY = Math.floor(canvas.height / 2);
             const pixel = ctx.getImageData(midX, midY, 1, 1).data;
             
-            const [targetL, targetA, targetB] = rgbToLab(pixel[0], pixel[1], pixel[2]);
-
-            colorPreview.style.backgroundColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-
-            // 【新・黒＆影のシャットアウト機能】
-            // 明度(targetL)が23以下の極端に暗い領域は、判定の対象外（保留）にする
-            if (targetL <= 23) {
-                judgment.innerText = "⏳ 測定保留 (Too Dark)";
-                judgment.style.color = "#7f8c8d"; // ニュートラルなグレー
-                matchComment.innerText = "黒、または影を検出しました。パーソナルカラーの判定を避けるため、もう少し色みのある場所を映してください。";
+            // 写っているものの平均的な明るさを計算
+            const currentR = pixel[0];
+            const currentG = pixel[1];
+            const currentB = pixel[2];
+            
+            const avg = (currentR + currentG + currentB) / 3;
+            
+            if (avg < 30) {
+                alert("暗すぎます。もっと明るい白、またはグレーのものを映してください。");
                 return;
             }
-
-            let minDistance = Infinity;
-            let closestColorName = "";
-
-            colorDatabase.forEach(color => {
-                const distance = Math.sqrt(
-                    Math.pow(targetL - color.l, 2) +
-                    Math.pow(targetA - color.a, 2) +
-                    Math.pow(targetB - color.b, 2)
-                );
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestColorName = color.name;
-                }
-            });
-
-            // しきい値は「少し近ければOK」な大らかさ（25）をキープ
-            const THRESHOLD = 25; 
-
-            if (minDistance <= THRESHOLD) {
-                judgment.innerText = "✨ 合格 (Match)";
-                judgment.style.color = "#3a7d44"; 
-                matchComment.innerText = `「${closestColorName}」のニュアンスを感じる、調和しやすい光です。`;
-            } else {
-                judgment.innerText = "⏳ 対象外 (Miss)";
-                judgment.style.color = "#a63a3a"; 
-                matchComment.innerText = "少しサマーの領域から距離があるようです。光のあたり方を変えてみるか、別の色を試してみてください。";
-            }
+            
+            // 各色のズレを計算して、補正倍率を決める
+            rScale = avg / currentR;
+            gScale = avg / currentG;
+            bScale = avg / currentB;
+            
+            calibStatus.innerText = `現在の調律: 補正完了（R:${rScale.toFixed(2)} G:${gScale.toFixed(2)} B:${bScale.toFixed(2)}）`;
+            matchComment.innerText = "環境光の調律が完了しました。服やメイクを測定してください。";
         });
-    </script>
-</body>
-</html>
