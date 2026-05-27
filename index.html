@@ -3,36 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cool Summer Checker</title>
+    <title>Cool Summer Matcher</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f5f7f8; margin: 0; padding: 20px; color: #333; }
-        h1 { font-size: 1.5rem; color: #2c3e50; }
-        #video-container { position: relative; width: 100%; max-width: 400px; margin: 20px auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; text-align: center; background: #f0f4f8; margin: 0; padding: 20px; color: #2c3e50; }
+        h1 { font-size: 1.4rem; color: #34495e; font-weight: 600; letter-spacing: 0.05em; }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 20px auto; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(149, 157, 165, 0.2); }
         video { width: 100%; display: block; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid white; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.5); pointer-events: none; }
-        button { background: #4a90e2; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 25px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        button:active { transform: scale(0.98); }
-        #result-box { margin-top: 25px; padding: 15px; border-radius: 8px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        #color-preview { width: 60px; height: 60px; border-radius: 50%; margin: 10px auto; border: 2px solid #ddd; }
-        #color-name { font-size: 1.3rem; font-weight: bold; margin: 5px 0; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.3); pointer-events: none; }
+        button { background: #5c88b9; color: white; border: none; padding: 14px 32px; font-size: 1rem; border-radius: 30px; cursor: pointer; transition: 0.3s; margin-top: 15px; box-shadow: 0 4px 12px rgba(92, 136, 185, 0.3); }
+        button:active { transform: scale(0.96); }
+        #result-box { margin-top: 30px; padding: 20px; border-radius: 12px; background: white; max-width: 400px; margin-left: auto; margin-right: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.04); transition: 0.3s; }
+        #judgment { font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
+        #match-comment { font-size: 1rem; color: #7f8c8d; margin-bottom: 15px; }
+        #color-preview { width: 45px; height: 45px; border-radius: 50%; margin: 0 auto; border: 2px solid #e2e8f0; }
     </style>
 </head>
 <body>
 
-    <h1>クールサマー・チェッカー</h1>
-    <p>画面中央の○を、調べたい服やメイクに合わせてね</p>
+    <h1>クールサマー・マッチャー</h1>
+    <p style="font-size: 0.9rem; color: #7f8c8d;">中央の○に対象をあわせて、あなたの「調和する光」を見つけます</p>
 
     <div id="video-container">
         <video id="video" autoplay playsinline></video>
         <div id="crosshair"></div>
     </div>
 
-    <button id="check-btn">この色を判定！</button>
+    <button id="check-btn">色を調律する</button>
 
     <div id="result-box">
+        <div id="judgment">-</div>
+        <div id="match-comment">ここに判定結果が出ます</div>
         <div id="color-preview"></div>
-        <div id="color-name">ここに結果が出ます</div>
-        <div id="color-detail"></div>
     </div>
 
     <canvas id="canvas" style="display:none;"></canvas>
@@ -41,33 +42,29 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const checkBtn = document.getElementById('check-btn');
+        const judgment = document.getElementById('judgment');
+        const matchComment = document.getElementById('match-comment');
         const colorPreview = document.getElementById('color-preview');
-        const colorName = document.getElementById('color-name');
-        const colorDetail = document.getElementById('color-detail');
         
         let colorDatabase = [];
 
-        // 1. さっき作った「colors.json」から48色のデータを読み込む
         fetch('colors.json')
             .then(response => response.json())
             .then(data => { colorDatabase = data; })
-            .catch(err => console.error("データの読み込みに失敗しました", err));
+            .catch(err => console.error("データの読込失敗", err));
 
-        // 2. スマホの外カメラを起動する
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; })
-            .catch(err => { alert("カメラの起動に失敗しました。ブラウザの権限を確認してください。"); });
+            .catch(err => { alert("カメラを起動できません"); });
 
-        // 3. 判定ボタンを押したときの処理
         checkBtn.addEventListener('click', () => {
             if (colorDatabase.length === 0) return;
 
             const ctx = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            
-            // ビデオの真ん中の1ピクセルを切り取る
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
             const midX = Math.floor(canvas.width / 2);
             const midY = Math.floor(canvas.height / 2);
             const pixel = ctx.getImageData(midX, midY, 1, 1).data;
@@ -76,31 +73,40 @@
             const g = pixel[1];
             const b = pixel[2];
 
-            // 4. 48色の中で「一番近い色」を計算（見比べる）
-            let closestColor = null;
+            // 48色すべてと見比べて、「一番惜しかった（近い）距離」を測る
             let minDistance = Infinity;
+            let closestColorName = "";
 
             colorDatabase.forEach(color => {
-                // 三平方の定理で、色の「距離」を計算する
                 const distance = Math.sqrt(
                     Math.pow(r - color.R, 2) +
                     Math.pow(g - color.G, 2) +
                     Math.pow(b - color.B, 2)
                 );
-                
                 if (distance < minDistance) {
                     minDistance = distance;
-                    closestColor = color;
+                    closestColorName = color.name;
                 }
             });
 
-            // 5. 結果を画面に表示する
-            if (closestColor) {
-                colorPreview.style.backgroundColor = `rgb(${closestColor.R}, ${closestColor.G}, ${closestColor.B})`;
-                colorName.innerText = `一番近い色：${closestColor.name}`;
-                colorDetail.innerText = `カメラが拾った色: RGB(${r}, ${g}, ${b})`;
+            // 【ここが中庸のフィルター】
+            // 距離のしきい値（マージン）を「65」に設定。これより数字が小さければ「似ている」とみなす
+            const THRESHOLD = 65; 
+
+            // カメラが拾った実際の色を丸いプレビューに映す
+            colorPreview.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+
+            if (minDistance <= THRESHOLD) {
+                judgment.innerText = "✨ 合格 (Match)";
+                judgment.style.color = "#2e7d32"; // 穏やかな緑色
+                matchComment.innerText = `パレットの「${closestColorName}」に近い、美しい味方の光です。`;
+            } else {
+                judgment.innerText = "⏳ 対象外 (Miss)";
+                judgment.style.color = "#c62828"; // 落ち着いた赤色
+                matchComment.innerText = "少しイエローベースに寄っているか、くすみが強いかもしれません。";
             }
         });
     </script>
 </body>
 </html>
+
